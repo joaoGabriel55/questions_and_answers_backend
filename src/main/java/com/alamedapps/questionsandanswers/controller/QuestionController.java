@@ -5,6 +5,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
+import com.alamedapps.questionsandanswers.dto.AnswerUser;
+import com.alamedapps.questionsandanswers.dto.QuestionsAndAnswers;
+import com.alamedapps.questionsandanswers.entity.Answer;
+import com.alamedapps.questionsandanswers.service.AnswerService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -33,103 +37,173 @@ import com.alamedapps.questionsandanswers.service.UserService;
 @CrossOrigin(origins = "*")
 public class QuestionController {
 
-	@Autowired
-	private QuestionService questionService;
+    @Autowired
+    private QuestionService questionService;
 
-	@Autowired
-	private UserService userService;
+    @Autowired
+    private AnswerService answerService;
 
-	@GetMapping(params = { "page", "size", "userId" })
-	@ResponseStatus(HttpStatus.OK)
-	@ResponseBody
-	public ResponseEntity<Response<List<QuestionUser>>> findPaginateQuestions(@RequestParam("page") int page,
-			@RequestParam("size") int size, @RequestParam("userId") int userId) {
-		
-		Response<List<QuestionUser>> response = new Response<List<QuestionUser>>();
+    @Autowired
+    private UserService userService;
 
-		List<QuestionUser> questionUserList = new ArrayList<>();
+    @GetMapping(params = {"page", "size", "userId"})
+    @ResponseStatus(HttpStatus.OK)
+    @ResponseBody
+    public ResponseEntity<Response<List<QuestionUser>>> findPaginateQuestions(@RequestParam("page") int page,
+                                                                              @RequestParam("size") int size, @RequestParam("userId") int userId) {
 
-		Page<Question> questions = null;
-		if (userId > 0)
-			questions = questionService.findPaginatedByUserId(userId, page, size);
-		else
-			questions = questionService.findPaginated(page, size);
+        Response<List<QuestionUser>> response = new Response<List<QuestionUser>>();
 
-		if (page > questions.getTotalPages()) {
-			response.getErrors().add("Page not found");
-			return ResponseEntity.badRequest().body(response);
-		}
+        List<QuestionUser> questionUserList = new ArrayList<>();
 
-		for (Iterator<Question> iterator = questions.getContent().iterator(); iterator.hasNext();) {
-			Question question = (Question) iterator.next();
+        Page<Question> questions = null;
+        if (userId > 0)
+            questions = questionService.findPaginatedByUserId(userId, page, size);
+        else
+            questions = questionService.findPaginated(page, size);
 
-			QuestionUser questionUser = new QuestionUser();
-			questionUser.setUserId(question.getAuthor().getId());
-			questionUser.setUserName(question.getAuthor().getNome());
-			questionUser.setQuestionId(question.getId());
-			questionUser.setQuestionContent(question.getContent());
+        if (page > questions.getTotalPages()) {
+            response.getErrors().add("Page not found");
+            return ResponseEntity.badRequest().body(response);
+        }
 
-			questionUserList.add(questionUser);
+        for (Iterator<Question> iterator = questions.getContent().iterator(); iterator.hasNext(); ) {
+            Question question = (Question) iterator.next();
 
-			questionUser = new QuestionUser();
-		}
+            QuestionUser questionUser = new QuestionUser();
+            questionUser.setUserId(question.getAuthor().getId());
+            questionUser.setUserName(question.getAuthor().getNome());
+            questionUser.setQuestionId(question.getId());
+            questionUser.setQuestionContent(question.getContent());
 
-		response.setData(questionUserList);
+            questionUserList.add(questionUser);
 
-		return ResponseEntity.ok(response);
-	}
+            questionUser = new QuestionUser();
+        }
 
-	@GetMapping("/{id}")
-	@ResponseStatus(HttpStatus.OK)
-	@ResponseBody
-	public ResponseEntity<Response<Question>> findById(@PathVariable("id") int id) {
-		Response<Question> response = new Response<>();
+        response.setData(questionUserList);
 
-		Optional<Question> question = questionService.findById(id);
+        return ResponseEntity.ok(response);
+    }
 
-		if (question.get() == null) {
-			response.getErrors().add("Question not found id: " + id);
-			return ResponseEntity.badRequest().body(response);
-		}
+    @GetMapping(value= "/questionsanswers", params = {"page", "size", "userId"})
+    @ResponseStatus(HttpStatus.OK)
+    @ResponseBody
+    public ResponseEntity<Response<List<QuestionsAndAnswers>>> findPaginateQuestionsAndAllAnswers(
+            @RequestParam("page") int page, @RequestParam("size") int size, @RequestParam("userId") int userId) {
 
-		response.setData(question.get());
-		return ResponseEntity.ok(response);
-	}
+        Response<List<QuestionsAndAnswers>> response = new Response<List<QuestionsAndAnswers>>();
 
-	@PostMapping("/{idUser}")
-	@ResponseStatus(HttpStatus.CREATED)
-	@ResponseBody
-	public ResponseEntity<Response<Question>> createOrUpdate(@RequestBody Question question,
-			@PathVariable("idUser") int idUser) {
+        List<QuestionsAndAnswers> questionsAndAnswersList = new ArrayList<>();
 
-		Response<Question> response = new Response<>();
+        Page<Question> questions = null;
+        if (userId > 0)
+            questions = questionService.findPaginatedByUserId(userId, page, size);
+        else
+            questions = questionService.findPaginated(page, size);
 
-		Optional<User> author = userService.findById(idUser);
-		if (author != null) {
-			question.setAuthor(author.get());
-			questionService.saveOrUpdate(question);
-			response.setData(question);
-			return ResponseEntity.ok().body(response);
-		} else {
-			response.getErrors().add("Author not exists!");
-			return ResponseEntity.badRequest().body(response);
-		}
-	}
+        if (page > questions.getTotalPages()) {
+            response.getErrors().add("Page not found");
+            return ResponseEntity.badRequest().body(response);
+        }
 
-	@DeleteMapping(value = "{id}")
-	public ResponseEntity<Response<String>> delete(@PathVariable("id") int id) {
+        for (Iterator<Question> iterator = questions.getContent().iterator(); iterator.hasNext(); ) {
+            Question question = (Question) iterator.next();
 
-		Response<String> response = new Response<String>();
-		Optional<Question> question = questionService.findById(id);
+            QuestionsAndAnswers questionsAndAnswers = new QuestionsAndAnswers();
 
-		if (question.get() == null) {
-			response.getErrors().add("Register not found, id: " + id);
-			return ResponseEntity.badRequest().body(response);
-		}
 
-		questionService.delete(question.get());
-		return ResponseEntity.ok(new Response<String>());
+            List<AnswerUser> answerUserList = new ArrayList<>();
+            List<Answer> answerList = new ArrayList<>();
 
-	}
+            questionsAndAnswers.setUserId(question.getAuthor().getId());
+            questionsAndAnswers.setUserName(question.getAuthor().getNome());
+            questionsAndAnswers.setQuestionId(question.getId());
+            questionsAndAnswers.setQuestionContent(question.getContent());
+
+            answerList = answerService.findAllAnswersByQuestionId(question.getId());
+
+            if (answerList != null) {
+
+                for (Answer answer : answerList) {
+                    AnswerUser answerUser = new AnswerUser();
+                    answerUser.setAnswerId(answer.getId());
+                    answerUser.setAnswerContent(answer.getContent());
+                    answerUser.setAuthorId(answer.getAuthor().getId());
+                    answerUser.setAuthor(answer.getAuthor().getNome());
+                    answerUser.setQuestionId(answer.getQuestion().getId());
+
+                    answerUserList.add(answerUser);
+
+                    answerUser = new AnswerUser();
+                }
+            }
+
+            questionsAndAnswers.setAnswerUserList(answerUserList);
+
+            questionsAndAnswersList.add(questionsAndAnswers);
+
+            questionsAndAnswers = new QuestionsAndAnswers();
+            answerUserList = new ArrayList<>();
+            answerList = new ArrayList<>();
+        }
+
+        response.setData(questionsAndAnswersList);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    @ResponseBody
+    public ResponseEntity<Response<Question>> findById(@PathVariable("id") int id) {
+        Response<Question> response = new Response<>();
+
+        Optional<Question> question = questionService.findById(id);
+
+        if (question.get() == null) {
+            response.getErrors().add("Question not found id: " + id);
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        response.setData(question.get());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/{idUser}")
+    @ResponseStatus(HttpStatus.CREATED)
+    @ResponseBody
+    public ResponseEntity<Response<Question>> createOrUpdate(@RequestBody Question question,
+                                                             @PathVariable("idUser") int idUser) {
+
+        Response<Question> response = new Response<>();
+
+        Optional<User> author = userService.findById(idUser);
+        if (author != null) {
+            question.setAuthor(author.get());
+            questionService.saveOrUpdate(question);
+            response.setData(question);
+            return ResponseEntity.ok().body(response);
+        } else {
+            response.getErrors().add("Author not exists!");
+            return ResponseEntity.badRequest().body(response);
+        }
+    }
+
+    @DeleteMapping(value = "{id}")
+    public ResponseEntity<Response<String>> delete(@PathVariable("id") int id) {
+
+        Response<String> response = new Response<String>();
+        Optional<Question> question = questionService.findById(id);
+
+        if (question.get() == null) {
+            response.getErrors().add("Register not found, id: " + id);
+            return ResponseEntity.badRequest().body(response);
+        }
+
+        questionService.delete(question.get());
+        return ResponseEntity.ok(new Response<String>());
+
+    }
 
 }

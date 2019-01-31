@@ -44,4 +44,10 @@ public class AnswerServiceImpl implements AnswerService {
 		return this.answerRepository.findAnswersByQuestionId(id, new PageRequest(page, size));
 	}
 
+	@Override
+	public List<Answer> findAllAnswersByQuestionId(Integer id) {
+		return this.answerRepository.findAllAnswersByQuestionId(id);
+	}
+
+
 }
